@@ -1,0 +1,32 @@
+#!/bin/bash
+
+#Accpets receiver email as $1
+
+mkdir -p  ~/storjAlerts #Make a dir to work on (if not exists)
+cd ~/storjAlerts #Move to this directory
+
+#Checking only the 40 latest logs will may miss some errors but
+#It will be enough to know if node is offline
+docker logs storagenode --tail 40 &> out #Save everything to a txt file
+
+cat out|grep ERROR > err #Save errors to "err" file
+now=$(date +"%T") #get current time
+
+#Now we will check if the file is empty
+if [ -s err ]; then
+        #We have errors so we need to send them all with an email
+        echo "Subject: Storj ERROR Alert" >mail #Add the subject
+        echo " " >>mail #Its really important to let a new line after
+        cat err >>mail
+        ssmtp $1 <mail
+
+        #We will also save logs after every succesful run
+        echo "$now : Error encountered with storjNode" >> storjMailAlertlogs
+        rm err #Removing contents of this file to use it next time
+else
+        #Node is running fine
+        echo "$now : No errors encountered" >> storjMailAlertlogs
+fi
+
+#Uncomment this line if you don't want to save script outputs
+#rm -rf ~/storjAlerts
