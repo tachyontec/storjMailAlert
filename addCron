@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#Create a temporary file to add the config for crontab
+crontab -l > temp
+
+#Peronally i choose to run this every 10 minutes
+#We take here as well the receiver email as $1
+echo "*/10 * * * * /bin/storjMailAlert $1" >> temp
+
+#Now configuration file is created
+#We just need to excecute the command
+crontab temp
+
+rm temp #Everything is done and we can remove the file
