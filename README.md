@@ -1,6 +1,9 @@
 # storjMailAlert
 Simple script to send email alert when storj Node encounters an error
 
+EASY RUN AFTER CLONING:
+$ chmod +x setup.sh && sudo ./setup.sh receiver@email.xxx
+
 We have 3 scripts:
 
 1. Setup.sh
