@@ -1,14 +1,28 @@
 #!/bin/bash
 
+#USAGE:
+#./addCron $update_interval
+#Accepting update interval as an argument
+#this is how often cron will be running the check
+
 #Create a temporary file to add the config for crontab
 crontab -l > temp
 
 #Peronally i choose to run this every 10 minutes
 #We take here as well the receiver email as $1
-echo "*/10 * * * * /bin/storjMailAlert $1" >> temp
+if [ -z "$1" ]; then
+        #use the one already in the file
+        update_int=$(cat /bin/storjMailAlert|grep "upd_int="|cut -d "=" -f 2|xargs)
+else
+        #Time was given as input
+        update_int=$1
+fi
+
+#Now we are ready to create the cron task:
+echo "*/$update_int * * * * /bin/storjMailAlert" >> temp
 
 #Now configuration file is created
 #We just need to excecute the command
 crontab temp
 
-rm temp #Everything is done and we can remove the file
+#rm temp #Everything is done and we can remove the temporary file
