@@ -1,32 +1,65 @@
 #!/bin/bash
 
-#Accpets receiver email as $1
-
 mkdir -p  ~/storjAlerts #Make a dir to work on (if not exists)
 cd ~/storjAlerts #Move to this directory
 
-#Checking only the 40 latest logs will may miss some errors but
-#It will be enough to know if node is offline
-docker logs storagenode --tail 40 &> out #Save everything to a txt file
+#################################################################################
+#As seen in the ./setup we are using sed to assign prices in our varibles,
+#but you can also edit those lines manually to add them
+receiver=arisfetzian@yahoo.com
+#This is how often we will check the logs
+upd_int=20
+#Finally we have the minimum percentage of errors required to send an email
+min=1
+#################################################################################
 
-cat out|grep ERROR > err #Save errors to "err" file
+#We want to check all logs between two checks
+docker logs storagenode --since "$upd_int"m &> out #Save everything to a txt file
+n_logs=$(cat out|wc -l) #Count the logs that we saved
+cat out|grep 'FATAL\|ERROR' > err #Save errors to err file
+#Counting error logs but we will add 00 in the end so will get the percentage
+err_logs=$(cat err|wc -l)
+#Finally we can count the percentage of errors:
+percent=$(bc <<<"scale=2; $err_logs*100 / $n_logs") #Now that is between 0-100
+
 now=$(date +"%T") #get current time
 
-#Now we will check if the file is empty
-if [ -s err ]; then
-        #We have errors so we need to send them all with an email
-        echo "Subject: Storj ERROR Alert" >mail #Add the subject
-        echo " " >>mail #Its really important to let a new line after
-        cat err >>mail
-        ssmtp $1 <mail
+#Check if the percentage is more than the minimum we set:
+if (( $(echo "$percent > $min" |bc -l) ));then
+	#In this case we will create mail:
 
-        #We will also save logs after every succesful run
-        echo "$now : Error encountered with storjNode" >> storjMailAlertlogs
-        rm err #Removing contents of this file to use it next time
+	echo "Subject: Storj ERROR Alert" >mail #Add the subject
+	echo " " >>mail #Its really important to let a new line after
+
+	#We will save each error seperately to see if we have repetitions
+	#To make it easier for operator to understand the problem
+	#----------MORE STATS TO BE ADDED SOON----------
+	#-f2- is used to remove timestamps to find uniq errors
+	#cut -d { is used to remove specifications about piece id etc...
+	cat err|cut -d "Z" -f2-|cut -d "{" -f1|sort|uniq -c > uniqerr
+	uniq_errors=$(cat uniqerr|wc -l) #Count unique errors
+	echo "---------------------------------------------------" >>mail
+	echo ">Total errors: $err_logs" >>mail
+	echo ">Unique errors: $uniq_errors" >>mail
+	echo ">Total errors percentage: $percent %">>mail
+	echo "---------------------------------------------------">>mail
+	echo "">>mail
+	echo "TIMES_ENCOUNTERED     ERROR">>mail
+	echo "">>mail
+	cat uniqerr >>mail #unique errors and times each appeared
+	echo "<------------------------------------------------------>">>mail
+	#After this we add all errors so user can see all the data
+	echo "ALL ERRORS:">>mail
+	echo "">>mail
+	cat err>>mail #Add all errors with timestamps
+	ssmtp $receiver <mail
+	#We will also save logs after every succesful run
+	echo "$now : Error encountered with storjNode" >> storjMailAlertlogs
+	#rm out err uniqerr mail #remove files we no longer need
 else
-        #Node is running fine
-        echo "$now : No errors encountered" >> storjMailAlertlogs
+	#Node is running fine
+	echo "$now : No errors encountered" >> storjMailAlertlogs
 fi
 
 #Uncomment this line if you don't want to save script outputs
-#rm -rf ~/storjAlerts
+#rm -f out err storjMailAlertlogs
