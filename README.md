@@ -1,3 +1,5 @@
+[![CI](https://github.com/tachyontec/storjMailAlert/actions/workflows/ci.yml/badge.svg)](https://github.com/tachyontec/storjMailAlert/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 # StorjMailAlert
 
 A modular monitoring and alerting system for Storj storage node operators. Get email notifications when your nodes have issues, with automatic self-repair capabilities.
