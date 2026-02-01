@@ -1,0 +1,21 @@
+---
+# StorjMailAlert - Multi-Node Deployment Playbook
+#
+# Usage:
+#   ansible-playbook ansible/playbook.yml -i ansible/inventory.ini
+#
+# Dry run:
+#   ansible-playbook ansible/playbook.yml -i ansible/inventory.ini --check
+#
+# Limit to specific host:
+#   ansible-playbook ansible/playbook.yml -i ansible/inventory.ini --limit hostname
+
+- name: Deploy StorjMailAlert to all nodes
+  hosts: storj_nodes
+  become: true
+  vars:
+    install_dir: "/home/{{ ansible_user }}/storjMailAlert"
+    repo_url: https://github.com/tachyontec/storjMailAlert.git
+    branch: main
+  roles:
+    - storjMailAlert

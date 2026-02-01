@@ -1,0 +1,21 @@
+{
+  "servers": [
+    {
+      "name": "node1",
+      "host": "your-domain.ddns.net",
+      "sshPort": 22,
+      "nodes": [
+        { "port": 14002 }
+      ]
+    },
+    {
+      "name": "node2",
+      "host": "your-domain2.ddns.net",
+      "sshPort": 22,
+      "nodes": [
+        { "port": 14002 },
+        { "port": 14004, "containerName": "my-custom-node", "mountPoint": "/mnt/my-data" }
+      ]
+    }
+  ]
+}

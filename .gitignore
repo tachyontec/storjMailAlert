@@ -1,0 +1,15 @@
+# User configuration files (contain sensitive data)
+config.env
+nodes.json
+
+# Log files
+logs/
+*.log
+
+# Temporary files
+tmp/
+*.tmp
+
+# Ansible generated files
+ansible/generated/
+ansible/inventory.ini

@@ -1,0 +1,75 @@
+---
+# StorjMailAlert Ansible Role - Deployment Tasks
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - ssmtp
+      - jq
+      - bc
+      - curl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Clone or update StorjMailAlert repository
+  ansible.builtin.git:
+    repo: "{{ repo_url }}"
+    dest: "{{ install_dir }}"
+    version: "{{ branch }}"
+    force: false
+    update: true
+  become_user: "{{ run_as_user }}"
+
+- name: Create logs and tmp directories
+  ansible.builtin.file:
+    path: "{{ install_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ run_as_user }}"
+    mode: "0755"
+  loop:
+    - logs
+    - tmp
+
+- name: Copy shared nodes.json
+  ansible.builtin.copy:
+    src: "{{ generated_dir }}/nodes.json"
+    dest: "{{ install_dir }}/nodes.json"
+    owner: "{{ run_as_user }}"
+    mode: "0644"
+
+- name: Copy host-specific config.env
+  ansible.builtin.copy:
+    src: "{{ generated_dir }}/{{ inventory_hostname }}/config.env"
+    dest: "{{ install_dir }}/config.env"
+    owner: "{{ run_as_user }}"
+    mode: "0600"
+
+- name: Set execute permissions on scripts
+  ansible.builtin.shell:
+    cmd: |
+      chmod +x "{{ install_dir }}/run_checks.sh" \
+                "{{ install_dir }}/setup.sh" \
+                "{{ install_dir }}/setup-multi.sh" \
+                "{{ install_dir }}"/checks/*.sh \
+                "{{ install_dir }}"/lib/*.sh
+  changed_when: true
+
+- name: Read CHECK_INTERVAL from config.env
+  ansible.builtin.shell:
+    cmd: grep '^CHECK_INTERVAL=' "{{ install_dir }}/config.env" | cut -d= -f2
+  register: check_interval_result
+  changed_when: false
+
+- name: Install cron job for StorjMailAlert
+  ansible.builtin.cron:
+    name: "StorjMailAlert monitoring"
+    minute: "*/{{ check_interval_result.stdout | default('15') }}"
+    job: "{{ install_dir }}/run_checks.sh >> {{ install_dir }}/logs/cron.log 2>&1"
+    user: "{{ run_as_user }}"
+
+- name: Smoke test - verify run_checks.sh --help works
+  ansible.builtin.command:
+    cmd: "{{ install_dir }}/run_checks.sh --help"
+  become_user: "{{ run_as_user }}"
+  changed_when: false

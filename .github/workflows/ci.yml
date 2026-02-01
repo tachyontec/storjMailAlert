@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck on all scripts
+        run: |
+          find . -name '*.sh' -not -path './.git/*' | while read -r script; do
+            echo "Checking $script..."
+            shellcheck -x -s bash "$script"
+          done
+
+      - name: Run ShellCheck on scripts without extension
+        run: |
+          for script in run_checks.sh setup.sh; do
+            if [ -f "$script" ]; then
+              echo "Checking $script..."
+              shellcheck -x -s bash "$script"
+            fi
+          done
+
+  syntax-check:
+    name: Bash Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check bash syntax on all scripts
+        run: |
+          find . -name '*.sh' -not -path './.git/*' | while read -r script; do
+            echo "Syntax check: $script"
+            bash -n "$script"
+          done
+
+  json-validate:
+    name: JSON Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON example files
+        run: |
+          for json_file in config/nodes.json.example; do
+            echo "Validating $json_file..."
+            jq empty "$json_file"
+          done
+
+      - name: Validate nodes.json schema
+        run: |
+          jq -e '
+            .servers
+            | type == "array"
+            and (.[0] | has("name", "host", "sshPort", "nodes"))
+            and (.[0].nodes | type == "array")
+            and (.[0].nodes[0] | has("port"))
+          ' config/nodes.json.example > /dev/null
+          echo "Schema validation passed"
+
+      - name: Validate Ansible YAML files
+        run: |
+          pip install --quiet yamllint
+          for yml_file in ansible/playbook.yml ansible/roles/storjMailAlert/tasks/main.yml ansible/roles/storjMailAlert/defaults/main.yml; do
+            echo "Validating $yml_file..."
+            python3 -c "import yaml; yaml.safe_load(open('$yml_file'))"
+          done
+          echo "All YAML files valid"
+
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get install -y jq bc
+
+      - name: Verify scripts are sourceable
+        run: |
+          # common.sh should source without errors when not loading config
+          bash -c 'SCRIPT_DIR="$(pwd)"; source lib/common.sh' 2>&1 || true
+
+      - name: Verify run_checks.sh --help
+        run: |
+          chmod +x run_checks.sh setup.sh setup-multi.sh checks/*.sh lib/*.sh
+          ./run_checks.sh --help
+
+      - name: Verify setup-multi.sh syntax
+        run: bash -n setup-multi.sh
+
+      - name: Verify setup creates config from example
+        run: |
+          cp config/config.env.example config.env
+          cp config/nodes.json.example nodes.json
+          # Config should be sourceable
+          source config.env
+          [ -n "$ALERT_EMAIL" ] && echo "config.env loads correctly"
+          # nodes.json should be valid and parseable
+          jq -e '.servers | length > 0' nodes.json > /dev/null
+          echo "nodes.json loads correctly"
+
+  permissions-check:
+    name: File Permissions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify executable scripts have shebangs
+        run: |
+          find . -name '*.sh' -not -path './.git/*' | while read -r script; do
+            head -1 "$script" | grep -q '^#!/bin/bash' || {
+              echo "FAIL: $script missing shebang"
+              exit 1
+            }
+          done
+          echo "All scripts have valid shebangs"

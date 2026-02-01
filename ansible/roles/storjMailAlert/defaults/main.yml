@@ -1,0 +1,15 @@
+---
+# StorjMailAlert Ansible Role - Default Variables
+
+# Installation directory on target hosts
+install_dir: "/home/{{ ansible_user }}/storjMailAlert"
+
+# Git repository settings
+repo_url: https://github.com/tachyontec/storjMailAlert.git
+branch: main
+
+# User to run StorjMailAlert cron job as
+run_as_user: "{{ ansible_user }}"
+
+# Path to generated config files on the control machine
+generated_dir: "{{ playbook_dir }}/generated"
