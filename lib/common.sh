@@ -106,15 +106,13 @@ log_to_file() {
 send_email() {
     local subject="$1"
     local body="$2"
-    local hostname
-    hostname="$(cat /etc/hostname 2>/dev/null | xargs || echo 'unknown')"
 
     if ! command -v ssmtp &> /dev/null; then
         log_error "ssmtp is not installed. Cannot send email."
         return 1
     fi
 
-    echo -e "Subject: $subject\n\n$body" | /usr/sbin/ssmtp -F "$hostname" "$ALERT_EMAIL"
+    echo -e "Subject: $subject\n\n$body" | /usr/sbin/ssmtp -F "$(get_hostname)" "$ALERT_EMAIL"
     log_info "Email sent to $ALERT_EMAIL: $subject"
 }
 
@@ -137,9 +135,8 @@ send_aggregated_alerts() {
         return 0
     fi
 
-    local hostname
-    hostname="$(cat /etc/hostname 2>/dev/null | xargs || echo 'unknown')"
-    local subject="Storj Alert from $hostname: ${#ALERT_MESSAGES[@]} issue(s) detected"
+    local subject
+    subject="Storj Alert from $(get_hostname): ${#ALERT_MESSAGES[@]} issue(s) detected"
     local body="The following issues were detected:\n\n"
 
     for msg in "${ALERT_MESSAGES[@]}"; do
@@ -220,7 +217,7 @@ check_dependencies() {
 
 # Get current hostname
 get_hostname() {
-    cat /etc/hostname 2>/dev/null | xargs || hostname || echo "unknown"
+    hostname || xargs < /etc/hostname 2>/dev/null || echo 'unknown'
 }
 
 # Check if current machine matches a given name
@@ -298,12 +295,9 @@ get_local_nodes() {
         return 1
     fi
 
-    local current_hostname
-    current_hostname="$(get_hostname)"
-
     # Find the server entry matching this hostname
     local server
-    server="$(jq -c --arg name "$current_hostname" '.servers[] | select(.name == $name)' "$NODES_FILE" 2>/dev/null)"
+    server="$(jq -c --arg name "$(get_hostname)" '.servers[] | select(.name == $name)' "$NODES_FILE" 2>/dev/null)"
 
     if [[ -z "$server" ]]; then
         return 1
